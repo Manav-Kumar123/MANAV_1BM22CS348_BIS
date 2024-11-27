@@ -1,0 +1,58 @@
+import numpy as np
+
+# Objective Function (Rastrigin Function)
+def objective_function(x):
+    return 10 * len(x) + sum([xi**2 - 10 * np.cos(2 * np.pi * xi) for xi in x])
+
+# Lévy Flight Step
+def levy_flight(Lambda):
+    sigma_u = (np.math.gamma(1 + Lambda) * np.sin(np.pi * Lambda / 2) /
+               (np.math.gamma((1 + Lambda) / 2) * Lambda * 2**((Lambda - 1) / 2)))**(1 / Lambda)
+    sigma_v = 1
+    u = np.random.normal(0, sigma_u, size=1)
+    v = np.random.normal(0, sigma_v, size=1)
+    step = u / abs(v)**(1 / Lambda)
+    return step[0]
+
+# Cuckoo Search Algorithm
+def cuckoo_search(objective_function, n=25, max_generations=100, lb=-5.12, ub=5.12, pa=0.25, dim=2):
+    # Initialize nests
+    nests = np.random.uniform(lb, ub, (n, dim))
+    fitness = np.array([objective_function(nest) for nest in nests])
+    best_index = np.argmin(fitness)
+    best_solution = nests[best_index]
+
+    for generation in range(max_generations):
+        # Generate new solutions via Lévy flights
+        new_nests = np.copy(nests)
+        for i in range(n):
+            step_size = levy_flight(1.5) * (nests[i] - best_solution)
+            new_nests[i] = nests[i] + step_size
+            new_nests[i] = np.clip(new_nests[i], lb, ub)  # Ensure within bounds
+
+        # Evaluate new solutions
+        new_fitness = np.array([objective_function(nest) for nest in new_nests])
+
+        # Select better solutions
+        for i in range(n):
+            if new_fitness[i] < fitness[i]:
+                nests[i] = new_nests[i]
+                fitness[i] = new_fitness[i]
+
+        # Abandon a fraction of nests (pa)
+        abandoned_nests = np.random.rand(n) < pa
+        nests[abandoned_nests] = np.random.uniform(lb, ub, (np.sum(abandoned_nests), dim))
+
+        # Update the best solution
+        best_index = np.argmin(fitness)
+        best_solution = nests[best_index]
+
+        # Optional: Print progress
+        print(f"Generation {generation + 1}, Best Fitness: {fitness[best_index]}")
+
+    return best_solution, fitness[best_index]
+
+# Example Usage
+best_solution, best_fitness = cuckoo_search(objective_function, dim=2)
+print("Best Solution:", best_solution)
+print("Best Fitness:", best_fitness)
